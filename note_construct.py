@@ -26,6 +26,10 @@ thres = 0.5
 
 timbre_gain = 1.7
 shelving_filter_gain = 1.4
+def dump_array(f, name, arr):
+    f.write(f'[{name}]\n')
+    f.write(' '.join([f'{x:.6f}' for x in arr]))
+    f.write('\n\n')
 
 
 def timesfilt(b, a, signal, times):
@@ -125,7 +129,7 @@ def release_decay(freq):
     return const_exp + var_exp * np.power(1 - freq / 22050, 3)
 
 
-def note_construct(expr, des):
+def note_construct(expr, des, jsondes):
     note = 65
     seq = 1
     note_trend = np.array(expr[1])
@@ -145,7 +149,11 @@ def note_construct(expr, des):
     
     # with open(f'./table/vibration_table.json') as jf3:
     #     vib_table = json.load(jf3)
-        
+    note_data = {
+        "note": note,
+        "fs": fs,
+        "partials": [],
+    }
         
     pars2['overlapLen'] = 2000
     # note_len = pars['ori_sec']
@@ -199,8 +207,22 @@ def note_construct(expr, des):
     
     noise1, _ = librosa.load('./colored_noise.wav', sr=fs * (2000 / pars['coloredCutoff1']))
     noise2, _ = librosa.load('./colored_noise.wav', sr=fs * (2000 / pars['coloredCutoff2']))
-    
+
+
+    note_data["length"] = length
+    note_data["base_freq"] = base_freq
+    note_data["pitch"] = pitch.tolist()
+    note_data["vibrato"] = vib.tolist()
+
+    note_data["expression"] = {
+        "intensity": intensity_sus.tolist(),
+        "density": density_sus.tolist(),
+        "bow_position": bow_pos.tolist()
+    }
+
+
     for partial in range(1, pars['partialAmount']+1):
+    # for partial in range(1, 3):
         over_freq = base_freq * partial
         
         noise_fac = 1.0 + (-1) * density_sus * 0.5
@@ -310,8 +332,26 @@ def note_construct(expr, des):
         # partial addition
         tone = np.sin(2 * np.pi * over_freq * t + alpha) * mag
         mixtone += tone
-        
+
+        alpha = concat(aa, alpha_sus, pars2['overlapLen'])
+        mag   = concat(ma, mag_sus, pars2['overlapLen'])
+        note_data["partials"].append({
+            "index": partial,
+            "freq": over_freq,
+            "alpha": alpha.tolist(),
+            "mag": mag.tolist()
+        })
+
+
+
+    
     sf.write(des, mixtone, fs)
+    json_path = des.replace('.wav', '.json')
+
+    with open(jsondes, 'w') as f:
+        json.dump(note_data, f, indent=2)
+
+    print(f'parameter json written: {json_path}')
     print('note witren!!')
 
 
