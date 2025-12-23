@@ -8,4 +8,6 @@ wheels/
 graphicParameter/
 note/
 noteParameter/
-graph/
+
+graph/*
+!graph/.gitskip
