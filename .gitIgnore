@@ -5,9 +5,7 @@ dist/
 wheels/
 *.egg-info
 
+graph/
 graphicParameter/
 note/
 noteParameter/
-
-graph/*
-!graph/.gitskip
