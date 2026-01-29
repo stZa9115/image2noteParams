@@ -62,13 +62,13 @@ def linearReSample(y, target_sr):
         out[i] = y[floor] + cur_diff * (pos - floor)
     return out
 
-def linearReSample2(y, target_sr):
-    l = y.shape[0]
-    tmp = librosa.resample(y, orig_sr=l, target_sr=(l * 100), res_type='linear')
-    out = librosa.resample(tmp, orig_sr=tmp.shape[0], target_sr=target_sr, res_type='linear')
-    if out.shape[0] != target_sr:
-        out = out[:target_sr]
-    return out
+def linearReSample2(y, target_len):
+    y = np.asarray(y)
+    x_old = np.linspace(0, 1, num=y.shape[0], endpoint=True)
+    x_new = np.linspace(0, 1, num=target_len, endpoint=True)
+    return np.interp(x_new, x_old, y)
+
+
 
 def concat(atk, sus, ovlp, mod='hann'):
     split = [0] * 4
@@ -129,7 +129,7 @@ def release_decay(freq):
     return const_exp + var_exp * np.power(1 - freq / 22050, 3)
 
 
-def note_construct(expr, des, jsondes):
+def note_construct(expr, des, jsondes, partialDes):
     note = 65
     seq = 1
     note_trend = np.array(expr[1])
@@ -149,11 +149,7 @@ def note_construct(expr, des, jsondes):
     
     # with open(f'./table/vibration_table.json') as jf3:
     #     vib_table = json.load(jf3)
-    note_data = {
-        "note": note,
-        "fs": fs,
-        "partials": [],
-    }
+
         
     pars2['overlapLen'] = 2000
     # note_len = pars['ori_sec']
@@ -209,18 +205,25 @@ def note_construct(expr, des, jsondes):
     noise2, _ = librosa.load('./colored_noise.wav', sr=fs * (2000 / pars['coloredCutoff2']))
 
 
-    note_data["length"] = length
-    note_data["base_freq"] = base_freq
-    note_data["pitch"] = pitch.tolist()
-    note_data["vibrato"] = vib.tolist()
 
-    note_data["expression"] = {
-        "intensity": intensity_sus.tolist(),
-        "density": density_sus.tolist(),
-        "bow_position": bow_pos.tolist()
+
+    noteParameter = {}
+    noteParameter["fs"] = fs
+    noteParameter['pitch'] = pitch.tolist()
+    noteParameter["length"] = length
+    noteParameter['intensity'] = intensity.tolist()
+    noteParameter['density'] = density.tolist()
+    noteParameter['hue'] = hue.tolist()
+    noteParameter['saturation'] = saturation.tolist()
+    noteParameter['value'] = value.tolist()
+    with open(jsondes, 'w') as f:
+        json.dump(noteParameter, f, indent=2)
+    
+    note_data = {
+        "note": note,
+        "fs": fs,
+        "partials": [],
     }
-
-
     for partial in range(1, pars['partialAmount']+1):
     # for partial in range(1, 3):
         over_freq = base_freq * partial
@@ -348,12 +351,9 @@ def note_construct(expr, des, jsondes):
     sf.write(des, mixtone, fs)
     json_path = des.replace('.wav', '.json')
 
-    with open(jsondes, 'w') as f:
+    with open(partialDes, 'w') as f:
         json.dump(note_data, f, indent=2)
 
     print(f'parameter json written: {json_path}')
     print('note witren!!')
-
-
-    
 
